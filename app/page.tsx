@@ -87,7 +87,7 @@ type SystemConfig = {
   foamTankGallons: number;
 };
 
-export default function Home() {
+export default function Page() {
   const [systemCount, setSystemCount] = useState<number>(1);
 
   const [systems, setSystems] = useState<SystemConfig[]>(() =>
@@ -102,7 +102,7 @@ export default function Home() {
   const [sourceGallons, setSourceGallons] = useState<number>(20000);
   const [sourceRefillGpm, setSourceRefillGpm] = useState<number>(0);
 
-  // Pool helper inputs
+  // Pool / tank helper
   const [poolShape, setPoolShape] = useState<"rect" | "circle">("rect");
   const [poolLength, setPoolLength] = useState<number>(30);
   const [poolWidth, setPoolWidth] = useState<number>(15);
@@ -110,11 +110,11 @@ export default function Home() {
   const [poolShallow, setPoolShallow] = useState<number>(3.5);
   const [poolDeep, setPoolDeep] = useState<number>(6);
 
-  // Toggles
+  // Collapsibles
   const [showSourceDetails, setShowSourceDetails] = useState<boolean>(false);
   const [showFoamDetails, setShowFoamDetails] = useState<boolean>(false);
 
-  // Derived system stats
+  // Per-system math
   const systemStats = useMemo(
     () => systems.map((s) => computeSystem(s.zones, s.gpmValues)),
     [systems]
@@ -126,12 +126,13 @@ export default function Home() {
     [systemStats, activeCount]
   );
 
+  // Combined average demand
   const totalAvgGpm = useMemo(
     () => activeStats.reduce((sum, s) => sum + s.avgGpm, 0),
     [activeStats]
   );
 
-  // Pool volume helper
+  // Pool / tank volume helper
   const poolGallons = useMemo(() => {
     const shallow = Math.max(0, Number(poolShallow) || 0);
     const deep = Math.max(0, Number(poolDeep) || 0);
@@ -195,7 +196,7 @@ export default function Home() {
     [activeStats, systems]
   );
 
-  // Actions
+  // --- Actions ---
   const updateSystem = (index: number, patch: Partial<SystemConfig>) => {
     setSystems((prev) => {
       const next = [...prev];
@@ -367,56 +368,71 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2 text-[10px]">
-                    <label className="text-slate-500">Zones</label>
-                    <input
-                      type="range"
-                      min={1}
-                      max={MAX_ZONES}
-                      value={cfg.zones}
-                      onChange={(e) =>
-                        updateSystem(sIdx, {
-                          zones: clamp(
-                            parseInt(e.target.value, 10),
-                            1,
-                            MAX_ZONES
-                          )
-                        })
-                      }
-                      className="w-24"
-                    />
-                    <input
-                      type="number"
-                      min={1}
-                      max={MAX_ZONES}
-                      value={cfg.zones}
-                      onChange={(e) =>
-                        updateSystem(sIdx, {
-                          zones: clamp(
-                            parseInt(e.target.value || "1", 10),
-                            1,
-                            MAX_ZONES
-                          )
-                        })
-                      }
-                      className="w-14 rounded-md bg-slate-50 border border-slate-300 px-2 py-1 text-[10px]"
-                    />
-                    <input
-                      type="number"
-                      min={0}
-                      step={0.1}
-                      placeholder="Set all GPM"
-                      className="w-20 rounded-md bg-slate-50 border border-slate-300 px-2 py-1 text-[10px]"
-                      onBlur={(e) => {
-                        const v = parseFloat(e.target.value || "0");
-                        if (v > 0) setAllZonesGpm(sIdx, v);
-                      }}
-                    />
+                  <div className="flex flex-wrap items-center gap-3 text-[10px]">
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-500">Zones</span>
+                      <input
+                        type="range"
+                        min={1}
+                        max={MAX_ZONES}
+                        value={cfg.zones}
+                        onChange={(e) =>
+                          updateSystem(sIdx, {
+                            zones: clamp(
+                              parseInt(e.target.value, 10),
+                              1,
+                              MAX_ZONES
+                            )
+                          })
+                        }
+                        className="w-24"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[9px] text-slate-500">
+                        # of Zones
+                      </span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={MAX_ZONES}
+                        value={cfg.zones}
+                        onChange={(e) =>
+                          updateSystem(sIdx, {
+                            zones: clamp(
+                              parseInt(e.target.value || "1", 10),
+                              1,
+                              MAX_ZONES
+                            )
+                          })
+                        }
+                        className="w-16 rounded-md bg-slate-50 border border-slate-300 px-2 py-1 text-[10px]"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[9px] text-slate-500">
+                        Set all zones to (GPM)
+                      </span>
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.1}
+                        placeholder="e.g. 20"
+                        className="w-24 rounded-md bg-slate-50 border border-slate-300 px-2 py-1 text-[10px]"
+                        onBlur={(e) => {
+                          const v = parseFloat(e.target.value || "0");
+                          if (v > 0) setAllZonesGpm(sIdx, v);
+                        }}
+                      />
+                    </div>
+
                     <button
                       type="button"
                       onClick={() => setAllZonesGpm(sIdx, 20)}
                       className={
-                        "px-2 py-1 rounded-md border text-[9px] " +
+                        "px-2 py-1 h-8 self-end rounded-md border text-[9px] " +
                         (all20
                           ? "border-emerald-400 bg-emerald-50 text-emerald-700 font-semibold"
                           : "border-slate-300 text-slate-700 bg-slate-50 hover:bg-slate-100")
@@ -452,6 +468,11 @@ export default function Home() {
                         0.25% mix when foam is on
                       </span>
                     </div>
+                  </div>
+
+                  <div className="mt-1 text-[9px] text-slate-500">
+                    Set individual zone flow rates in the section below if you need
+                    more granularity.
                   </div>
                 </div>
               );
@@ -604,8 +625,8 @@ export default function Home() {
           {!showSourceDetails && (
             <p className="text-[10px] text-slate-600">
               Use this helper to estimate pool or tank gallons from dimensions and
-              push that volume into the backup water source. Click &quot;Show
-              details&quot; to expand.
+              push that volume into the backup water source. Click "Show details" to
+              expand.
             </p>
           )}
 
@@ -617,8 +638,8 @@ export default function Home() {
                 </div>
                 <p>
                   Total avg demand = sum of each system&apos;s avg GPM. Net draw =
-                  total demand − refill. Runtime = source gallons ÷ net draw when
-                  net draw &gt; 0.
+                  total demand − refill. Runtime = source gallons ÷ net draw when net
+                  draw &gt; 0.
                 </p>
                 <ul className="list-disc list-inside space-y-1 text-slate-600">
                   <li>Total avg demand: {totalAvgGpm.toFixed(2)} GPM</li>
@@ -634,7 +655,7 @@ export default function Home() {
                 </div>
                 <p className="text-slate-600">
                   Estimate a pool or tank volume with average depth and apply it to
-                  the backup source.
+                  the backup water source.
                 </p>
                 <div className="flex items-center gap-3 text-[10px]">
                   <label className="flex items-center gap-1">
@@ -720,7 +741,7 @@ export default function Home() {
           )}
         </section>
 
-        {/* FOAM MATH (OPTIONAL DETAIL) */}
+        {/* FOAM MATH & ASSUMPTIONS (OPTIONAL) */}
         {showFoamDetails && (
           <section className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3 text-[11px] text-slate-700">
             <div className="flex items-center justify-between">
@@ -736,8 +757,8 @@ export default function Home() {
             </div>
             <p>
               Foam concentrate is injected at 0.25% of each system&apos;s average
-              solution flow. Foam runtime is independent for each tank and does not
-              depend on the backup water volume.
+              solution flow. Each foam runtime is calculated independently from its
+              own tank and does not depend on the backup water volume.
             </p>
             <ul className="list-disc list-inside space-y-1 text-slate-600">
               {activeStats.map((s, i) => {
