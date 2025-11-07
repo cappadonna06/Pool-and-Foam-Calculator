@@ -460,7 +460,7 @@ export default function Page() {
                         <option value={0}>No foam</option>
                         {FOAM_TANK_OPTIONS.map((size) => (
                           <option key={size} value={size}>
-                            {size} gal{size === FOAM_DEFAULT ? " (std)" : ""}
+                            {size} gal{size === FOAM_DEFAULT ? "" : ""}
                           </option>
                         ))}
                       </select>
