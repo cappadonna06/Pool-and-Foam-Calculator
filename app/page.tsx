@@ -31,7 +31,7 @@ function clamp(n: number, min: number, max: number) {
 
 function computeSystem(zones: number, gpmValues: number[]) {
   const z = clamp(zones || 1, 1, MAX_ZONES);
-  const breakMin = BREAK_MAP[z];
+  the const breakMin = BREAK_MAP[z];
   const runPerZoneMin = 5;
 
   const activeGpm = gpmValues
@@ -98,9 +98,12 @@ export default function Page() {
     }))
   );
 
-  // Backup water source
-  const [sourceGallons, setSourceGallons] = useState<number>(20000);
-  const [sourceRefillGpm, setSourceRefillGpm] = useState<number>(0);
+  // 🔧 Backup water source: keep UI values as strings so the field can be cleared
+  const [sourceGallonsInput, setSourceGallonsInput] = useState<string>("20000");
+  const [sourceRefillInput, setSourceRefillInput] = useState<string>("0");
+  // Parse to numbers only for calculations
+  const sourceGallons = Math.max(0, parseFloat(sourceGallonsInput || "0") || 0);
+  const sourceRefillGpm = Math.max(0, parseFloat(sourceRefillInput || "0") || 0);
 
   // Pool / tank helper
   const [poolShape, setPoolShape] = useState<"rect" | "circle">("rect");
@@ -233,7 +236,8 @@ export default function Page() {
 
   const applyPoolToSource = () => {
     if (poolGallons && isFinite(poolGallons)) {
-      setSourceGallons(poolGallons);
+      // write as string so the input field updates nicely
+      setSourceGallonsInput(String(poolGallons));
       setShowSourceDetails(true);
     }
   };
@@ -299,10 +303,8 @@ export default function Page() {
                   type="number"
                   min={0}
                   step={1}
-                  value={sourceGallons}
-                  onChange={(e) =>
-                    setSourceGallons(Math.max(0, Number(e.target.value) || 0))
-                  }
+                  value={sourceGallonsInput}
+                  onChange={(e) => setSourceGallonsInput(e.target.value)}
                   className="w-full rounded-md bg-white border border-sky-200 px-2 py-1.5 text-[11px]"
                 />
               </div>
@@ -314,10 +316,8 @@ export default function Page() {
                   type="number"
                   min={0}
                   step={0.1}
-                  value={sourceRefillGpm}
-                  onChange={(e) =>
-                    setSourceRefillGpm(Math.max(0, Number(e.target.value) || 0))
-                  }
+                  value={sourceRefillInput}
+                  onChange={(e) => setSourceRefillInput(e.target.value)}
                   className="w-full rounded-md bg-white border border-sky-200 px-2 py-1.5 text-[11px]"
                 />
               </div>
@@ -407,457 +407,4 @@ export default function Page() {
                             )
                           })
                         }
-                        className="w-16 rounded-md bg-slate-50 border border-slate-300 px-2 py-1 text-[10px]"
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[9px] text-slate-500">
-                        Set all zones to (GPM)
-                      </span>
-                      <input
-                        type="number"
-                        min={0}
-                        step={0.1}
-                        placeholder="e.g. 20"
-                        className="w-24 rounded-md bg-slate-50 border border-slate-300 px-2 py-1 text-[10px]"
-                        onBlur={(e) => {
-                          const v = parseFloat(e.target.value || "0");
-                          if (v > 0) setAllZonesGpm(sIdx, v);
-                        }}
-                      />
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => setAllZonesGpm(sIdx, 20)}
-                      className={
-                        "px-2 py-1 h-8 self-end rounded-md border text-[9px] " +
-                        (all20
-                          ? "border-emerald-400 bg-emerald-50 text-emerald-700 font-semibold"
-                          : "border-slate-300 text-slate-700 bg-slate-50 hover:bg-slate-100")
-                      }
-                    >
-                      All 20 GPM
-                    </button>
-                  </div>
-
-                  <div className="mt-1 text-[10px]">
-                    <div className="font-semibold text-slate-700">Foam tank</div>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <select
-                        value={systems[sIdx].foamTankGallons}
-                        onChange={(e) =>
-                          updateSystem(sIdx, {
-                            foamTankGallons: Math.max(
-                              0,
-                              Number(e.target.value) || 0
-                            )
-                          })
-                        }
-                        className="w-full max-w-[150px] rounded-md bg-white border border-slate-300 px-2 py-1.5 text-[11px]"
-                      >
-                        <option value={0}>No foam</option>
-                        {FOAM_TANK_OPTIONS.map((size) => (
-                          <option key={size} value={size}>
-                            {size} gal{size === FOAM_DEFAULT ? "" : ""}
-                          </option>
-                        ))}
-                      </select>
-                      <span className="text-slate-500">
-                        0.25% mix when foam is on
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="mt-1 text-[9px] text-slate-500">
-                    Set individual zone flow rates in the section below if you need
-                    more granularity.
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* KEY RUNTIME SUMMARY */}
-        <section className="space-y-2">
-          <h2 className="text-sm font-semibold text-slate-800">
-            Key Runtime Summary
-          </h2>
-          <p className="text-[10px] text-slate-600">
-            Primary takeaways: how long the backup water lasts, and how long foam
-            lasts for each system based on its tank setting.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-3">
-            <HighlightCard
-              variant="water"
-              title="Backup water runtime"
-              value={sharedRuntime.label}
-              subtitle={
-                sharedRuntime.netDraw > 0
-                  ? `Net draw ${sharedRuntime.netDraw.toFixed(2)} GPM`
-                  : sharedRuntime.label === "N/A"
-                  ? "Enter source & flows to calculate"
-                  : "Refill ≥ total demand (no drawdown)"
-              }
-            />
-            {foamRuntimes.map((foam, i) => {
-              const tank = systems[i].foamTankGallons;
-              const hasFoam = tank > 0;
-              const value = hasFoam ? foam.label : "No foam";
-              const subtitle = hasFoam
-                ? `Tank ${tank} gal · Foam use ${foam.foamUseGpm.toFixed(3)} GPM`
-                : "No foam configured for this system";
-              return (
-                <HighlightCard
-                  key={i}
-                  variant="foam"
-                  title={`Foam runtime – System ${i + 1}`}
-                  value={value}
-                  subtitle={subtitle}
-                />
-              );
-            })}
-            <HighlightCard
-              variant="neutral"
-              title="Total average system flow"
-              value={`${totalAvgGpm.toFixed(2)} GPM`}
-              subtitle={`Sum of ${activeCount} system(s)`}
-            />
-          </div>
-        </section>
-
-        {/* PER-ZONE GPM EDITORS */}
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-slate-800">
-            Detailed Per-Zone GPM Editors
-          </h2>
-          <p className="text-[10px] text-slate-600">
-            Fine-tune each zone's GPM to reflect actual installed loads. These values
-            drive the average flow and all runtime calculations above.
-          </p>
-          <div className="space-y-3">
-            {Array.from({ length: activeCount }, (_, sIdx) => {
-              const stats = activeStats[sIdx];
-              const cfg = systems[sIdx];
-              return (
-                <div
-                  key={sIdx}
-                  className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2"
-                >
-                  <div className="text-[10px] font-semibold text-slate-700 mb-1">
-                    System {sIdx + 1} – {stats.z} zones · Avg{" "}
-                    {stats.avgGpm.toFixed(2)} GPM · Duty{" "}
-                    {(stats.dutyCycle * 100).toFixed(1)}%
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                    {Array.from({ length: stats.z }, (_, zIdx) => (
-                      <div key={zIdx} className="flex flex-col gap-1">
-                        <span className="text-[9px] uppercase tracking-wide text-slate-500">
-                          S{sIdx + 1}-Z{zIdx + 1}
-                        </span>
-                        <input
-                          type="number"
-                          min={0}
-                          step={0.1}
-                          value={cfg.gpmValues[zIdx] ?? 0}
-                          onChange={(e) =>
-                            updateZoneGpm(
-                              sIdx,
-                              zIdx,
-                              parseFloat(e.target.value || "0")
-                            )
-                          }
-                          className="w-full rounded-md bg-slate-50 border border-slate-300 px-2 py-1 text-[11px]"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 mt-1 text-[9px] text-slate-600">
-                    <div>
-                      <div className="font-semibold text-slate-700">Break</div>
-                      <div>{stats.breakMin} min</div>
-                    </div>
-                    <div>
-                      <div className="font-semibold text-slate-700">
-                        Cycle length
-                      </div>
-                      <div>{stats.cycleMin} min</div>
-                    </div>
-                    <div>
-                      <div className="font-semibold text-slate-700">
-                        Duty cycle
-                      </div>
-                      <div>{(stats.dutyCycle * 100).toFixed(1)}%</div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* POOL / TANK HELPER & WATER MATH (COLLAPSIBLE) */}
-        <section className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-800">
-              Pool / Tank Volume Helper & Water Math
-            </h2>
-            <button
-              className="text-[10px] text-slate-500 hover:text-slate-800 inline-flex items-center gap-1"
-              onClick={() => setShowSourceDetails((v) => !v)}
-            >
-              {showSourceDetails ? (
-                <>
-                  <span>Hide details</span>
-                  <span>▲</span>
-                </>
-              ) : (
-                <>
-                  <span>Show details</span>
-                  <span>▼</span>
-                </>
-              )}
-            </button>
-          </div>
-
-          {!showSourceDetails && (
-            <p className="text-[10px] text-slate-600">
-              Use this helper to estimate pool or tank gallons from dimensions and
-              push that volume into the backup water source. Click "Show details" to
-              expand.
-            </p>
-          )}
-
-          {showSourceDetails && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px] text-slate-700">
-              <div className="space-y-1">
-                <div className="font-semibold text-slate-800">
-                  Water source math (all active systems)
-                </div>
-                <p>
-                  Total avg demand = sum of each system&apos;s avg GPM. Net draw =
-                  total demand − refill. Runtime = source gallons ÷ net draw when net
-                  draw &gt; 0.
-                </p>
-                <ul className="list-disc list-inside space-y-1 text-slate-600">
-                  <li>Total avg demand: {totalAvgGpm.toFixed(2)} GPM</li>
-                  <li>Refill: {sourceRefillGpm.toFixed(2)} GPM</li>
-                  <li>Net draw: {sharedRuntime.netDraw.toFixed(2)} GPM</li>
-                  <li>Backup runtime: {sharedRuntime.label}</li>
-                </ul>
-              </div>
-
-              <div className="space-y-2">
-                <div className="font-semibold text-slate-800">
-                  Pool / tank volume
-                </div>
-                <p className="text-slate-600">
-                  Estimate a pool or tank volume with average depth and apply it to
-                  the backup water source.
-                </p>
-                <div className="flex items-center gap-3 text-[10px]">
-                  <label className="flex items-center gap-1">
-                    <input
-                      type="radio"
-                      checked={poolShape === "rect"}
-                      onChange={() => setPoolShape("rect")}
-                    />
-                    Rectangular
-                  </label>
-                  <label className="flex items-center gap-1">
-                    <input
-                      type="radio"
-                      checked={poolShape === "circle"}
-                      onChange={() => setPoolShape("circle")}
-                    />
-                    Circular
-                  </label>
-                </div>
-
-                {poolShape === "rect" ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    <NumberField
-                      label="Length (ft)"
-                      value={poolLength}
-                      onChange={setPoolLength}
-                    />
-                    <NumberField
-                      label="Width (ft)"
-                      value={poolWidth}
-                      onChange={setPoolWidth}
-                    />
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-2">
-                    <NumberField
-                      label="Diameter (ft)"
-                      value={poolDiameter}
-                      onChange={setPoolDiameter}
-                    />
-                    <div className="flex items-end text-[9px] text-slate-500">
-                      Uses πr² × avg depth
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-2 mt-1">
-                  <NumberField
-                    label="Shallow depth (ft)"
-                    value={poolShallow}
-                    onChange={setPoolShallow}
-                  />
-                  <NumberField
-                    label="Deep depth (ft)"
-                    value={poolDeep}
-                    onChange={setPoolDeep}
-                  />
-                </div>
-
-                <div className="flex items-baseline justify-between gap-2 mt-2">
-                  <div>
-                    <div className="text-[10px] text-slate-500">
-                      Estimated volume
-                    </div>
-                    <div className="text-lg font-semibold text-slate-900">
-                      {poolGallons ? poolGallons.toLocaleString() : "0"}
-                      <span className="text-[9px] text-slate-500 ml-1">
-                        gal
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={applyPoolToSource}
-                    disabled={!poolGallons}
-                    className="px-3 py-1.5 rounded-full text-[9px] border border-slate-300 text-slate-800 bg-slate-50 hover:bg-slate-100 disabled:opacity-40"
-                  >
-                    Use as backup source
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </section>
-
-        {/* FOAM MATH & ASSUMPTIONS (OPTIONAL) */}
-        {showFoamDetails && (
-          <section className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3 text-[11px] text-slate-700">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-800">
-                Foam Math & Assumptions
-              </h2>
-              <button
-                className="text-[10px] text-slate-500 hover:text-slate-800"
-                onClick={() => setShowFoamDetails(false)}
-              >
-                Close
-              </button>
-            </div>
-            <p>
-              Foam concentrate is injected at 0.25% of each system&apos;s average
-              solution flow. Each foam runtime is calculated independently from its
-              own tank and does not depend on the backup water volume.
-            </p>
-            <ul className="list-disc list-inside space-y-1 text-slate-600">
-              {activeStats.map((s, i) => {
-                const foam = foamRuntimes[i];
-                const tank = systems[i].foamTankGallons;
-                if (tank <= 0) {
-                  return (
-                    <li key={i}>System {i + 1}: No foam configured.</li>
-                  );
-                }
-                return (
-                  <li key={i}>
-                    System {i + 1}: Qavg = {s.avgGpm.toFixed(2)} GPM → foam use =
-                    {` ${foam.foamUseGpm.toFixed(3)} `}GPM → runtime = {foam.label}.
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        )}
-
-        <footer className="pt-1 text-[9px] text-slate-500">
-          For more than {MAX_SYSTEMS} systems, extend the same pattern: sum all
-          average flows for backup water runtime; compute each foam runtime from its
-          own tank.
-        </footer>
-      </div>
-    </div>
-  );
-}
-
-function HighlightCard({
-  title,
-  value,
-  subtitle,
-  variant = "neutral"
-}: {
-  title: string;
-  value: string;
-  subtitle?: string;
-  variant?: "neutral" | "water" | "helper" | "foam";
-}) {
-  let base =
-    "rounded-2xl p-4 flex flex-col justify-between shadow-sm border text-xs";
-  let titleClass = "text-[10px] font-semibold uppercase tracking-wide";
-  let valueClass = "mt-1 text-2xl md:text-3xl font-bold";
-  let subtitleClass = "mt-1 text-[10px]";
-
-  if (variant === "water") {
-    base += " bg-emerald-50 border-emerald-200";
-    titleClass += " text-emerald-700";
-    valueClass += " text-emerald-800";
-    subtitleClass += " text-emerald-700";
-  } else if (variant === "helper") {
-    base += " bg-sky-50 border-sky-200";
-    titleClass += " text-sky-700";
-    valueClass += " text-sky-800";
-    subtitleClass += " text-sky-700";
-  } else if (variant === "foam") {
-    base += " bg-indigo-50 border-indigo-200";
-    titleClass += " text-indigo-700";
-    valueClass += " text-indigo-800";
-    subtitleClass += " text-indigo-700";
-  } else {
-    base += " bg-white border-slate-200";
-    titleClass += " text-slate-600";
-    valueClass += " text-slate-900";
-    subtitleClass += " text-slate-500";
-  }
-
-  return (
-    <div className={base}>
-      <div className={titleClass}>{title}</div>
-      <div className={valueClass}>{value}</div>
-      {subtitle && <div className={subtitleClass}>{subtitle}</div>}
-    </div>
-  );
-}
-
-function NumberField({
-  label,
-  value,
-  onChange
-}: {
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-}) {
-  return (
-    <div>
-      <label className="block mb-1 text-[9px] text-slate-500">{label}</label>
-      <input
-        type="number"
-        min={0}
-        step={0.5}
-        value={value}
-        onChange={(e) => onChange(Math.max(0, Number(e.target.value) || 0))}
-        className="w-full rounded-md bg-slate-50 border border-slate-300 px-2 py-1.5 text-[11px] text-slate-900"
-      />
-    </div>
-  );
-}
+                        c
