@@ -31,7 +31,7 @@ function clamp(n: number, min: number, max: number) {
 
 function computeSystem(zones: number, gpmValues: number[]) {
   const z = clamp(zones || 1, 1, MAX_ZONES);
-  the const breakMin = BREAK_MAP[z];
+  const breakMin = BREAK_MAP[z];
   const runPerZoneMin = 5;
 
   const activeGpm = gpmValues
