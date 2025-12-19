@@ -23,7 +23,8 @@ const BREAK_MAP: Record<number, number> = {
 
 const FOAM_TANK_OPTIONS = [25, 50, 100, 150];
 const FOAM_DEFAULT = 50;
-const FOAM_MIX_RATIO = 0.0025; // 0.25%
+// ↑ Foam concentration updated 0.25% → 0.3%
+const FOAM_MIX_RATIO = 0.003; // 0.3%
 
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
@@ -59,18 +60,20 @@ function computeSystem(zones: number, gpmValues: number[]) {
   };
 }
 
+// Foam runtime now uses "usable" tank = selected size - 5 gal (not below 0)
 function computeFoamRuntime(avgGpm: number, foamTankGallons: number) {
   const avgUseGpm = Math.max(0, avgGpm || 0);
-  const foamTank = Math.max(0, Number(foamTankGallons) || 0);
+  // apply -5 gal buffer to selected tank size
+  const usableTank = Math.max(0, (Number(foamTankGallons) || 0) - 5);
 
-  if (!foamTank || !avgUseGpm) {
+  if (!usableTank || !avgUseGpm) {
     return { foamUseGpm: 0, minutes: null as number | null, label: "N/A" };
   }
 
   const foamUseGpm = avgUseGpm * FOAM_MIX_RATIO;
   if (foamUseGpm <= 0) return { foamUseGpm, minutes: null, label: "N/A" };
 
-  const minutes = foamTank / foamUseGpm;
+  const minutes = usableTank / foamUseGpm;
   const hours = Math.floor(minutes / 60);
   const mins = Math.round(minutes - hours * 60);
 
@@ -93,7 +96,8 @@ export default function Page() {
   const [systems, setSystems] = useState<SystemConfig[]>(() =>
     Array.from({ length: MAX_SYSTEMS }, () => ({
       zones: 6,
-      gpmValues: Array.from({ length: MAX_ZONES }, () => 20),
+      // Default per-zone GPM 20 → 22
+      gpmValues: Array.from({ length: MAX_ZONES }, () => 22),
       foamTankGallons: FOAM_DEFAULT
     }))
   );
@@ -190,7 +194,7 @@ export default function Page() {
     };
   }, [totalAvgGpm, sourceGallons, sourceRefillGpm]);
 
-  // Foam runtimes per active system
+  // Foam runtimes per active system (now uses tank-5 gal internally)
   const foamRuntimes = useMemo(
     () =>
       activeStats.map((s, i) =>
@@ -348,9 +352,10 @@ export default function Page() {
             {Array.from({ length: activeCount }, (_, sIdx) => {
               const stats = activeStats[sIdx];
               const cfg = systems[sIdx];
-              const all20 = cfg.gpmValues
+              // check for all 22 GPM now
+              const all22 = cfg.gpmValues
                 .slice(0, cfg.zones)
-                .every((v) => v === 20);
+                .every((v) => v === 22);
 
               return (
                 <div
@@ -419,7 +424,7 @@ export default function Page() {
                         type="number"
                         min={0}
                         step={0.1}
-                        placeholder="e.g. 20"
+                        placeholder="e.g. 22"
                         className="w-24 rounded-md bg-slate-50 border border-slate-300 px-2 py-1 text-[10px]"
                         onBlur={(e) => {
                           const v = parseFloat(e.target.value || "0");
@@ -430,15 +435,15 @@ export default function Page() {
 
                     <button
                       type="button"
-                      onClick={() => setAllZonesGpm(sIdx, 20)}
+                      onClick={() => setAllZonesGpm(sIdx, 22)}
                       className={
                         "px-2 py-1 h-8 self-end rounded-md border text-[9px] " +
-                        (all20
+                        (all22
                           ? "border-emerald-400 bg-emerald-50 text-emerald-700 font-semibold"
                           : "border-slate-300 text-slate-700 bg-slate-50 hover:bg-slate-100")
                       }
                     >
-                      All 20 GPM
+                      All 22 GPM
                     </button>
                   </div>
 
@@ -465,7 +470,7 @@ export default function Page() {
                         ))}
                       </select>
                       <span className="text-slate-500">
-                        0.25% mix when foam is on
+                        0.3% mix when foam is on
                       </span>
                     </div>
                   </div>
@@ -560,7 +565,8 @@ export default function Page() {
                         <input
                           type="number"
                           min={0}
-                          step={0.1}
+                          // ↑ arrows now change by 1 instead of 0.1
+                          step={1}
                           value={cfg.gpmValues[zIdx] ?? 0}
                           onChange={(e) =>
                             updateZoneGpm(
@@ -756,9 +762,10 @@ export default function Page() {
               </button>
             </div>
             <p>
-              Foam concentrate is injected at 0.25% of each system&apos;s average
-              solution flow. Each foam runtime is calculated independently from its
-              own tank and does not depend on the backup water volume.
+              Foam concentrate is injected at <strong>0.3%</strong> of each system&apos;s average
+              solution flow. Runtime uses the selected tank size minus 5 gallons of
+              unusable volume. Each system&apos;s foam runtime is independent of the backup water
+              volume.
             </p>
             <ul className="list-disc list-inside space-y-1 text-slate-600">
               {activeStats.map((s, i) => {
@@ -773,6 +780,7 @@ export default function Page() {
                   <li key={i}>
                     System {i + 1}: Qavg = {s.avgGpm.toFixed(2)} GPM → foam use =
                     {` ${foam.foamUseGpm.toFixed(3)} `}GPM → runtime = {foam.label}.
+                    (Tank {tank} gal, using {Math.max(0, tank - 5)} gal for runtime)
                   </li>
                 );
               })}
