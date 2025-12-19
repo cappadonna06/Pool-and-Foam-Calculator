@@ -18,12 +18,12 @@ const BREAK_MAP: Record<number, number> = {
   6: 5,
   7: 2,
   8: 2,
-  9: 2
+  9: 2,
 };
 
 const FOAM_TANK_OPTIONS = [25, 50, 100, 150];
 const FOAM_DEFAULT = 50;
-// ↑ Foam concentration updated 0.25% → 0.3%
+// 0.25% → 0.3%
 const FOAM_MIX_RATIO = 0.003; // 0.3%
 
 function clamp(n: number, min: number, max: number) {
@@ -56,14 +56,13 @@ function computeSystem(zones: number, gpmValues: number[]) {
     cycleMin,
     dutyCycle,
     avgGpm,
-    activeGpm
+    activeGpm,
   };
 }
 
-// Foam runtime now uses "usable" tank = selected size - 5 gal (not below 0)
+// Foam runtime uses usable volume = selected tank − 5 gal (not below 0)
 function computeFoamRuntime(avgGpm: number, foamTankGallons: number) {
   const avgUseGpm = Math.max(0, avgGpm || 0);
-  // apply -5 gal buffer to selected tank size
   const usableTank = Math.max(0, (Number(foamTankGallons) || 0) - 5);
 
   if (!usableTank || !avgUseGpm) {
@@ -80,7 +79,7 @@ function computeFoamRuntime(avgGpm: number, foamTankGallons: number) {
   return {
     foamUseGpm,
     minutes,
-    label: `${hours}h ${mins}m`
+    label: `${hours}h ${mins}m`,
   };
 }
 
@@ -90,26 +89,26 @@ type SystemConfig = {
   foamTankGallons: number;
 };
 
-export default function Page() {
+export default function App() {
   const [systemCount, setSystemCount] = useState<number>(1);
 
   const [systems, setSystems] = useState<SystemConfig[]>(() =>
     Array.from({ length: MAX_SYSTEMS }, () => ({
       zones: 6,
-      // Default per-zone GPM 20 → 22
+      // Default per-zone GPM = 22
       gpmValues: Array.from({ length: MAX_ZONES }, () => 22),
-      foamTankGallons: FOAM_DEFAULT
+      foamTankGallons: FOAM_DEFAULT,
     }))
   );
 
-  // 🔧 Backup water source: keep UI values as strings so the field can be cleared
+  // Backup water source inputs (as strings so users can clear the field without forcing 0)
   const [sourceGallonsInput, setSourceGallonsInput] = useState<string>("20000");
   const [sourceRefillInput, setSourceRefillInput] = useState<string>("0");
-  // Parse to numbers only for calculations
+  // Derived numeric values used for all calculations
   const sourceGallons = Math.max(0, parseFloat(sourceGallonsInput || "0") || 0);
   const sourceRefillGpm = Math.max(0, parseFloat(sourceRefillInput || "0") || 0);
 
-  // Pool / tank helper
+  // Pool helper (feeds shared source)
   const [poolShape, setPoolShape] = useState<"rect" | "circle">("rect");
   const [poolLength, setPoolLength] = useState<number>(30);
   const [poolWidth, setPoolWidth] = useState<number>(15);
@@ -117,11 +116,11 @@ export default function Page() {
   const [poolShallow, setPoolShallow] = useState<number>(3.5);
   const [poolDeep, setPoolDeep] = useState<number>(6);
 
-  // Collapsibles
+  // Collapsibles (for helpers/explanations only)
   const [showSourceDetails, setShowSourceDetails] = useState<boolean>(false);
   const [showFoamDetails, setShowFoamDetails] = useState<boolean>(false);
 
-  // Per-system math
+  // --- Per-system math ---
   const systemStats = useMemo(
     () => systems.map((s) => computeSystem(s.zones, s.gpmValues)),
     [systems]
@@ -133,13 +132,13 @@ export default function Page() {
     [systemStats, activeCount]
   );
 
-  // Combined average demand
+  // Combined average demand on the shared source
   const totalAvgGpm = useMemo(
     () => activeStats.reduce((sum, s) => sum + s.avgGpm, 0),
     [activeStats]
   );
 
-  // Pool / tank volume helper
+  // Pool volume helper
   const poolGallons = useMemo(() => {
     const shallow = Math.max(0, Number(poolShallow) || 0);
     const deep = Math.max(0, Number(poolDeep) || 0);
@@ -161,7 +160,7 @@ export default function Page() {
     }
   }, [poolShape, poolLength, poolWidth, poolDiameter, poolShallow, poolDeep]);
 
-  // Backup water runtime (all active systems)
+  // Shared backup water runtime (all active systems drawing)
   const sharedRuntime = useMemo(() => {
     const avgUseGpm = Math.max(0, totalAvgGpm || 0);
     const refill = Math.max(0, Number(sourceRefillGpm) || 0);
@@ -172,14 +171,14 @@ export default function Page() {
       return {
         netDraw,
         label: "N/A",
-        minutes: null as number | null
+        minutes: null as number | null,
       };
     }
     if (netDraw <= 0) {
       return {
         netDraw,
         label: "Unlimited (refill ≥ total demand)",
-        minutes: null as number | null
+        minutes: null as number | null,
       };
     }
 
@@ -190,11 +189,11 @@ export default function Page() {
     return {
       netDraw,
       minutes,
-      label: `${hours}h ${mins}m`
+      label: `${hours}h ${mins}m`,
     };
   }, [totalAvgGpm, sourceGallons, sourceRefillGpm]);
 
-  // Foam runtimes per active system (now uses tank-5 gal internally)
+  // Foam runtimes per active system
   const foamRuntimes = useMemo(
     () =>
       activeStats.map((s, i) =>
@@ -217,7 +216,7 @@ export default function Page() {
       const next = [...prev];
       next[index] = {
         ...next[index],
-        gpmValues: Array.from({ length: MAX_ZONES }, () => value)
+        gpmValues: Array.from({ length: MAX_ZONES }, () => value),
       };
       return next;
     });
@@ -240,7 +239,6 @@ export default function Page() {
 
   const applyPoolToSource = () => {
     if (poolGallons && isFinite(poolGallons)) {
-      // write as string so the input field updates nicely
       setSourceGallonsInput(String(poolGallons));
       setShowSourceDetails(true);
     }
@@ -250,27 +248,24 @@ export default function Page() {
     <div className="min-h-screen w-full bg-slate-50 text-slate-900 flex items-start justify-center p-6">
       <div className="w-full max-w-6xl space-y-6">
         {/* TITLE */}
-        <header className="space-y-1 flex flex-col gap-2">
+        <header className="space-y-1 flex flex-col md:flex-row md:items-baseline md:justify-between gap-2">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
               Back-up Water & Foam Runtime Calculator
             </h1>
             <p className="text-sm text-slate-600">
-              Configure up to 5 systems, a backup water source, and individual foam
-              tanks to understand continuous runtime capacity.
+              Configure up to 5 systems, a backup water source, and individual foam tanks to understand continuous runtime capacity.
             </p>
           </div>
         </header>
 
-        {/* SYSTEM CONFIGURATION BLOCK + BACKUP SOURCE CARD */}
+        {/* SYSTEM CONFIGURATION BLOCK + SHARED SOURCE CARD */}
         <section className="space-y-3">
           <h2 className="text-sm font-semibold text-slate-800">
             System and Back-up Water Source Configuration
           </h2>
           <p className="text-[10px] text-slate-600">
-            Configure each system and the backup water source. Foam tank size is set
-            per system. If multiple systems are configured, they are assumed to draw
-            from the same backup source. Detailed per-zone GPM editors are below.
+            Configure each system and the backup water source. Foam tank size is set per system. If multiple systems are configured, they are assumed to draw from the same backup source. Detailed per-zone GPM editors are below.
           </p>
           <div className="flex items-center gap-2 mt-1 text-[10px]">
             <span className="uppercase text-slate-500 font-semibold">
@@ -292,9 +287,8 @@ export default function Page() {
               ))}
             </select>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-            {/* Backup water source card */}
+            {/* Shared backup source card (light blue) */}
             <div className="bg-sky-50 border border-sky-200 rounded-2xl p-4 shadow-sm space-y-2">
               <div className="text-[10px] font-semibold uppercase tracking-wide text-sky-700">
                 Backup Water Source
@@ -328,23 +322,14 @@ export default function Page() {
               <button
                 type="button"
                 onClick={() => setShowSourceDetails((v) => !v)}
-                className="mt-2 px-3 py-1.5 rounded-md border border-sky-300 text-sky-800 bg-white hover:bg-sky-50 text-[9px] font-medium inline-flex items-center gap-1"
+                className="mt-2 px-3 py-1.5 rounded-md border border-sky-300 text-sky-800 bg-white hover:bg-sky-50 text-[9px] font-medium"
               >
-                {showSourceDetails ? (
-                  <>
-                    <span>Hide pool / tank helper</span>
-                    <span>▲</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Show pool / tank helper</span>
-                    <span>▼</span>
-                  </>
-                )}
+                {showSourceDetails
+                  ? "Hide pool / source helper"
+                  : "Pool / tank volume helper"}
               </button>
               <p className="text-[9px] text-slate-500 mt-1">
-                If multiple systems are configured, this assumes they all draw from
-                this same backup source.
+                If multiple systems are configured, this assumes they all draw from this same backup source.
               </p>
             </div>
 
@@ -352,7 +337,7 @@ export default function Page() {
             {Array.from({ length: activeCount }, (_, sIdx) => {
               const stats = activeStats[sIdx];
               const cfg = systems[sIdx];
-              // check for all 22 GPM now
+              // check for all 22 now
               const all22 = cfg.gpmValues
                 .slice(0, cfg.zones)
                 .every((v) => v === 22);
@@ -387,7 +372,7 @@ export default function Page() {
                               parseInt(e.target.value, 10),
                               1,
                               MAX_ZONES
-                            )
+                            ),
                           })
                         }
                         className="w-24"
@@ -395,9 +380,7 @@ export default function Page() {
                     </div>
 
                     <div className="flex flex-col gap-1">
-                      <span className="text-[9px] text-slate-500">
-                        # of Zones
-                      </span>
+                      <span className="text-[9px] text-slate-500">Zones (exact)</span>
                       <input
                         type="number"
                         min={1}
@@ -409,7 +392,7 @@ export default function Page() {
                               parseInt(e.target.value || "1", 10),
                               1,
                               MAX_ZONES
-                            )
+                            ),
                           })
                         }
                         className="w-16 rounded-md bg-slate-50 border border-slate-300 px-2 py-1 text-[10px]"
@@ -417,13 +400,11 @@ export default function Page() {
                     </div>
 
                     <div className="flex flex-col gap-1">
-                      <span className="text-[9px] text-slate-500">
-                        Set all zones to (GPM)
-                      </span>
+                      <span className="text-[9px] text-slate-500">Set all zones to (GPM)</span>
                       <input
                         type="number"
                         min={0}
-                        step={0.1}
+                        step={1}
                         placeholder="e.g. 22"
                         className="w-24 rounded-md bg-slate-50 border border-slate-300 px-2 py-1 text-[10px]"
                         onBlur={(e) => {
@@ -457,7 +438,7 @@ export default function Page() {
                             foamTankGallons: Math.max(
                               0,
                               Number(e.target.value) || 0
-                            )
+                            ),
                           })
                         }
                         className="w-full max-w-[150px] rounded-md bg-white border border-slate-300 px-2 py-1.5 text-[11px]"
@@ -465,7 +446,7 @@ export default function Page() {
                         <option value={0}>No foam</option>
                         {FOAM_TANK_OPTIONS.map((size) => (
                           <option key={size} value={size}>
-                            {size} gal{size === FOAM_DEFAULT ? "" : ""}
+                            {size} gal{size === FOAM_DEFAULT ? " (std)" : ""}
                           </option>
                         ))}
                       </select>
@@ -485,14 +466,14 @@ export default function Page() {
           </div>
         </section>
 
-        {/* KEY RUNTIME SUMMARY */}
+        {/* KEY RUNTIME SUMMARY: WATER + FOAM */}
         <section className="space-y-2">
           <h2 className="text-sm font-semibold text-slate-800">
             Key Runtime Summary
           </h2>
           <p className="text-[10px] text-slate-600">
-            Primary takeaways: how long the backup water lasts, and how long foam
-            lasts for each system based on its tank setting.
+            Primary takeaways: how long the backup water lasts, and how long
+            foam lasts for each system based on its tank setting.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-3">
             <HighlightCard
@@ -533,7 +514,7 @@ export default function Page() {
           </div>
         </section>
 
-        {/* PER-ZONE GPM EDITORS */}
+        {/* PER-ZONE GPM EDITORS (SEPARATE, ALWAYS READY) */}
         <section className="space-y-3">
           <h2 className="text-sm font-semibold text-slate-800">
             Detailed Per-Zone GPM Editors
@@ -553,8 +534,7 @@ export default function Page() {
                 >
                   <div className="text-[10px] font-semibold text-slate-700 mb-1">
                     System {sIdx + 1} – {stats.z} zones · Avg{" "}
-                    {stats.avgGpm.toFixed(2)} GPM · Duty{" "}
-                    {(stats.dutyCycle * 100).toFixed(1)}%
+                    {stats.avgGpm.toFixed(2)} GPM · Duty {(stats.dutyCycle * 100).toFixed(1)}%
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                     {Array.from({ length: stats.z }, (_, zIdx) => (
@@ -565,7 +545,7 @@ export default function Page() {
                         <input
                           type="number"
                           min={0}
-                          // ↑ arrows now change by 1 instead of 0.1
+                          // arrows change by 1
                           step={1}
                           value={cfg.gpmValues[zIdx] ?? 0}
                           onChange={(e) =>
@@ -586,15 +566,11 @@ export default function Page() {
                       <div>{stats.breakMin} min</div>
                     </div>
                     <div>
-                      <div className="font-semibold text-slate-700">
-                        Cycle length
-                      </div>
+                      <div className="font-semibold text-slate-700">Cycle length</div>
                       <div>{stats.cycleMin} min</div>
                     </div>
                     <div>
-                      <div className="font-semibold text-slate-700">
-                        Duty cycle
-                      </div>
+                      <div className="font-semibold text-slate-700">Duty cycle</div>
                       <div>{(stats.dutyCycle * 100).toFixed(1)}%</div>
                     </div>
                   </div>
@@ -604,7 +580,7 @@ export default function Page() {
           </div>
         </section>
 
-        {/* POOL / TANK HELPER & WATER MATH (COLLAPSIBLE) */}
+        {/* OPTIONAL HELPERS & MATH EXPLANATIONS */}
         <section className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-800">
@@ -631,7 +607,7 @@ export default function Page() {
           {!showSourceDetails && (
             <p className="text-[10px] text-slate-600">
               Use this helper to estimate pool or tank gallons from dimensions and
-              push that volume into the backup water source. Click "Show details" to
+              push that volume into the shared backup source. Click "Show details" to
               expand.
             </p>
           )}
@@ -643,9 +619,9 @@ export default function Page() {
                   Water source math (all active systems)
                 </div>
                 <p>
-                  Total avg demand = sum of each system&apos;s avg GPM. Net draw =
-                  total demand − refill. Runtime = source gallons ÷ net draw when net
-                  draw &gt; 0.
+                  Total avg demand = sum of each system's avg GPM. Net draw = total
+                  demand − refill. Runtime = source gallons ÷ net draw when net draw
+                  &gt; 0.
                 </p>
                 <ul className="list-disc list-inside space-y-1 text-slate-600">
                   <li>Total avg demand: {totalAvgGpm.toFixed(2)} GPM</li>
@@ -660,8 +636,8 @@ export default function Page() {
                   Pool / tank volume
                 </div>
                 <p className="text-slate-600">
-                  Estimate a pool or tank volume with average depth and apply it to
-                  the backup water source.
+                  Estimate a pool or tank volume with average depth and apply it to the
+                  shared backup source.
                 </p>
                 <div className="flex items-center gap-3 text-[10px]">
                   <label className="flex items-center gap-1">
@@ -739,7 +715,7 @@ export default function Page() {
                     disabled={!poolGallons}
                     className="px-3 py-1.5 rounded-full text-[9px] border border-slate-300 text-slate-800 bg-slate-50 hover:bg-slate-100 disabled:opacity-40"
                   >
-                    Use as backup source
+                    Use as shared source
                   </button>
                 </div>
               </div>
@@ -747,7 +723,6 @@ export default function Page() {
           )}
         </section>
 
-        {/* FOAM MATH & ASSUMPTIONS (OPTIONAL) */}
         {showFoamDetails && (
           <section className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3 text-[11px] text-slate-700">
             <div className="flex items-center justify-between">
@@ -762,10 +737,9 @@ export default function Page() {
               </button>
             </div>
             <p>
-              Foam concentrate is injected at <strong>0.3%</strong> of each system&apos;s average
-              solution flow. Runtime uses the selected tank size minus 5 gallons of
-              unusable volume. Each system&apos;s foam runtime is independent of the backup water
-              volume.
+              Foam concentrate is injected at <strong>0.3%</strong> of each system's average solution
+              flow. Runtime uses the selected tank size minus 5 gallons of unusable volume.
+              Each system's foam runtime is independent of the shared backup volume.
             </p>
             <ul className="list-disc list-inside space-y-1 text-slate-600">
               {activeStats.map((s, i) => {
@@ -773,14 +747,17 @@ export default function Page() {
                 const tank = systems[i].foamTankGallons;
                 if (tank <= 0) {
                   return (
-                    <li key={i}>System {i + 1}: No foam configured.</li>
+                    <li key={i}>
+                      System {i + 1}: No foam configured.
+                    </li>
                   );
                 }
                 return (
                   <li key={i}>
                     System {i + 1}: Qavg = {s.avgGpm.toFixed(2)} GPM → foam use =
-                    {` ${foam.foamUseGpm.toFixed(3)} `}GPM → runtime = {foam.label}.
-                    (Tank {tank} gal, using {Math.max(0, tank - 5)} gal for runtime)
+                    {" "}
+                    {foam.foamUseGpm.toFixed(3)} GPM → runtime = {foam.label}.
+                    (Tank {tank} gal, using {Math.max(0, tank - 5)} gal)
                   </li>
                 );
               })}
@@ -790,7 +767,7 @@ export default function Page() {
 
         <footer className="pt-1 text-[9px] text-slate-500">
           For more than {MAX_SYSTEMS} systems, extend the same pattern: sum all
-          average flows for backup water runtime; compute each foam runtime from its
+          average flows for shared water runtime; compute each foam runtime from its
           own tank.
         </footer>
       </div>
@@ -802,7 +779,7 @@ function HighlightCard({
   title,
   value,
   subtitle,
-  variant = "neutral"
+  variant = "neutral",
 }: {
   title: string;
   value: string;
@@ -849,7 +826,7 @@ function HighlightCard({
 function NumberField({
   label,
   value,
-  onChange
+  onChange,
 }: {
   label: string;
   value: number;
